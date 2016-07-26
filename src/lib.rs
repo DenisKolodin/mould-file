@@ -1,3 +1,4 @@
+#[macro_use]
 extern crate mould;
 
 pub mod file;
