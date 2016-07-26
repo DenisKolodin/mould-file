@@ -15,7 +15,7 @@ impl<CTX> Handler<CTX> for FileHandler where CTX: HasFileAccessPermission {
     fn build(&self, mut request: Request) -> Box<Worker<CTX>> {
         if request.action == "read-file" {
             Box::new(FileReadWorker {
-                name: request.extract("name"),
+                path: request.extract("path"),
                 file: None,
             })
         } else {
@@ -26,16 +26,16 @@ impl<CTX> Handler<CTX> for FileHandler where CTX: HasFileAccessPermission {
 }
 
 struct FileReadWorker {
-    name: Option<String>,
+    path: Option<String>,
     file: Option<File>,
 }
 
 impl<CTX> Worker<CTX> for FileReadWorker where CTX: HasFileAccessPermission {
     fn shortcut(&mut self, session: &mut CTX) -> WorkerResult<Shortcut> {
-        let name = try!(self.name.take().ok_or(
-            WorkerError::Reject("Name of file not set.".to_string())));
-        if session.has_permission(&name, FileAccessPermission::CanRead) {
-            let file = try!(File::open(&name));
+        let path = try!(self.path.take().ok_or(
+            WorkerError::Reject("Path to file is not set.".to_string())));
+        if session.has_permission(&path, FileAccessPermission::CanRead) {
+            let file = try!(File::open(&path));
             self.file = Some(file);
             Ok(Shortcut::Tuned)
         } else {
