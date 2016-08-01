@@ -3,16 +3,16 @@ use std::io::prelude::*;
 use mould::prelude::*;
 use super::{FileAccessPermission, HasFileAccessPermission};
 
-pub struct FileRouter { }
+pub struct FileService { }
 
-impl FileRouter {
+impl FileService {
     pub fn new() -> Self {
-        FileRouter { }
+        FileService { }
     }
 }
 
-impl<CTX> Router<CTX> for FileRouter where CTX: HasFileAccessPermission {
-    fn route(&self, request: &Request) -> Box<Worker<CTX>> {
+impl<T> Service<T> for FileService where T: HasFileAccessPermission {
+    fn route(&self, request: &Request) -> Box<Worker<T>> {
         if request.action == "read-file" {
             Box::new(FileReadWorker::new())
         } else {
@@ -32,8 +32,8 @@ impl FileReadWorker {
     }
 }
 
-impl<CTX> Worker<CTX> for FileReadWorker where CTX: HasFileAccessPermission {
-    fn prepare(&mut self, context: &mut CTX, mut request: Request) -> worker::Result<Shortcut> {
+impl<T> Worker<T> for FileReadWorker where T: HasFileAccessPermission {
+    fn prepare(&mut self, context: &mut T, mut request: Request) -> worker::Result<Shortcut> {
         let path: String = try!(request.extract("path")
             .ok_or(worker::Error::reject("Path to file is not set.")));
         if context.has_permission(&path, FileAccessPermission::CanRead) {
@@ -44,7 +44,7 @@ impl<CTX> Worker<CTX> for FileReadWorker where CTX: HasFileAccessPermission {
             Err(worker::Error::Reject("You haven't permissions!".to_string()))
         }
     }
-    fn realize(&mut self, _: &mut CTX, _: Option<Request>) -> worker::Result<Realize> {
+    fn realize(&mut self, _: &mut T, _: Option<Request>) -> worker::Result<Realize> {
         let mut file = try!(self.file.take().ok_or(
             worker::Error::reject("File handle was lost.")));
         let mut content = String::new();

@@ -3,7 +3,7 @@ extern crate mould;
 
 pub mod file;
 
-use mould::session::SessionData;
+use mould::session::Session;
 
 pub enum FileAccessPermission {
     CanRead,
@@ -11,6 +11,6 @@ pub enum FileAccessPermission {
     CanDelete,
 }
 
-pub trait HasFileAccessPermission: SessionData {
+pub trait HasFileAccessPermission: Session {
     fn has_permission(&self, path: &str, permission: FileAccessPermission) -> bool;
 }
