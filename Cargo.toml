@@ -5,3 +5,4 @@ authors = ["Denis Kolodin <deniskolodin@gmail.com>"]
 
 [dependencies]
 mould = { path = "../mould" }
+permission = "0.1.0"
