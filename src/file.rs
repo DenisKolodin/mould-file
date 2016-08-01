@@ -12,7 +12,7 @@ impl FileRouter {
 }
 
 impl<CTX> Router<CTX> for FileRouter where CTX: HasFileAccessPermission {
-    fn route(&self, _: &CTX, request: &Request) -> Box<Worker<CTX>> {
+    fn route(&self, request: &Request) -> Box<Worker<CTX>> {
         if request.action == "read-file" {
             Box::new(FileReadWorker::new())
         } else {
