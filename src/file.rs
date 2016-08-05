@@ -2,8 +2,9 @@ use std::fs::File;
 use std::path::Path;
 use std::convert::AsRef;
 use std::io::prelude::*;
-use mould::prelude::*;
 use permission::HasPermission;
+use mould::prelude::*;
+use mould::rustc_serialize::json::Json;
 
 pub enum FileAccess {
     CanRead,
@@ -20,7 +21,7 @@ macro_rules! check_permission {
     ($session:ident, $path:ident, $perm:ident) => {{
         let permission = FileAccessPermission {
             path: $path.as_ref(),
-            access: FileAccess::$perm,
+            access: $crate::FileAccess::$perm,
         };
         if !$session.has_permission(&permission) {
             return Err(worker::Error::Reject("You haven't permissions!".to_string()));
@@ -40,9 +41,9 @@ impl<T> Service<T> for FileService
     where T: for <'a> HasPermission<FileAccessPermission<'a>> {
     fn route(&self, request: &Request) -> Box<Worker<T>> {
         if request.action == "read-file" {
-            Box::new(ReadFileWorker::new())
+            Box::new(ReadFileWorker::new(false))
         } else if request.action == "write-file" {
-            Box::new(WriteFileWorker::new())
+            Box::new(WriteFileWorker::new(false))
         } else {
             let msg = format!("Unknown action '{}' for file service!", request.action);
             Box::new(RejectWorker::new(msg))
@@ -50,13 +51,39 @@ impl<T> Service<T> for FileService
     }
 }
 
+pub struct JsonFileService { }
+
+impl JsonFileService {
+    pub fn new() -> Self {
+        JsonFileService { }
+    }
+}
+
+impl<T> Service<T> for JsonFileService
+    where T: for <'a> HasPermission<FileAccessPermission<'a>> {
+    fn route(&self, request: &Request) -> Box<Worker<T>> {
+        if request.action == "read-json" {
+            Box::new(ReadFileWorker::new(true))
+        } else if request.action == "write-json" {
+            Box::new(WriteFileWorker::new(true))
+        } else {
+            let msg = format!("Unknown action '{}' for json file service!", request.action);
+            Box::new(RejectWorker::new(msg))
+        }
+    }
+}
+
+
 struct ReadFileWorker {
+    /// Flag to convert json
+    convert: bool,
     file: Option<File>,
 }
 
 impl ReadFileWorker {
-    fn new() -> Self {
+    fn new(convert: bool) -> Self {
         ReadFileWorker {
+            convert: convert,
             file: None,
         }
     }
@@ -76,18 +103,31 @@ impl<T> Worker<T> for ReadFileWorker
         let mut file = self.file.take().expect("File handle expected");
         let mut content = String::new();
         try!(file.read_to_string(&mut content));
-        Ok(Realize::OneItemAndDone(mould_object!{"content" => content}))
+        if self.convert {
+            match Json::from_str(&content) {
+                Ok(json) => Ok(Realize::OneItemAndDone(mould_object!{"json" => json})),
+                Err(err) => {
+                    let msg = format!("Can't decode json: {}", err);
+                    Err(worker::Error::Reject(msg))
+                },
+            }
+        } else {
+            Ok(Realize::OneItemAndDone(mould_object!{"content" => content}))
+        }
     }
 }
 
 struct WriteFileWorker {
+    /// Flag to convert json
+    convert: bool,
     file: Option<File>,
     content: Option<String>,
 }
 
 impl WriteFileWorker {
-    fn new() -> Self {
+    fn new(convert: bool) -> Self {
         WriteFileWorker {
+            convert: convert,
             file: None,
             content: None,
         }
@@ -98,7 +138,12 @@ impl<T> Worker<T> for WriteFileWorker
     where T: for<'a> HasPermission<FileAccessPermission<'a>> {
     fn prepare(&mut self, session: &mut T, mut request: Request) -> worker::Result<Shortcut> {
         let path: String = extract_field!(request, "path");
-        let content: String = extract_field!(request, "content");
+        let content: String = if self.convert {
+            let object = extract_field!(request, "json");
+            Json::Object(object).to_string()
+        } else {
+            extract_field!(request, "content")
+        };
         check_permission!(session, path, CanWrite);
         let file = try!(File::create(&path));
         self.file = Some(file);
