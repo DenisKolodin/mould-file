@@ -28,7 +28,7 @@ impl<T> Service<T> for FileService
     where T: for <'a> HasPermission<FileAccessPermission<'a>> {
     fn route(&self, request: &Request) -> Box<Worker<T>> {
         if request.action == "read-file" {
-            Box::new(FileReadWorker::new())
+            Box::new(ReadFileWorker::new())
         } else {
             let msg = format!("Unknown action '{}' for file service!", request.action);
             Box::new(RejectWorker::new(msg))
@@ -36,17 +36,17 @@ impl<T> Service<T> for FileService
     }
 }
 
-struct FileReadWorker {
+struct ReadFileWorker {
     file: Option<File>,
 }
 
-impl FileReadWorker {
+impl ReadFileWorker {
     fn new() -> Self {
-        FileReadWorker { file: None }
+        ReadFileWorker { file: None }
     }
 }
 
-impl<T> Worker<T> for FileReadWorker
+impl<T> Worker<T> for ReadFileWorker
     where T: for<'a> HasPermission<FileAccessPermission<'a>> {
     fn prepare(&mut self, context: &mut T, mut request: Request) -> worker::Result<Shortcut> {
         let path: String = try!(request.extract("path")
