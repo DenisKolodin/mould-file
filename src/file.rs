@@ -62,9 +62,9 @@ impl JsonFileService {
 impl<T> Service<T> for JsonFileService
     where T: for <'a> HasPermission<FileAccessPermission<'a>> {
     fn route(&self, request: &Request) -> Box<Worker<T>> {
-        if request.action == "read-json" {
+        if request.action == "read-object" {
             Box::new(ReadFileWorker::new(true))
-        } else if request.action == "write-json" {
+        } else if request.action == "write-object" {
             Box::new(WriteFileWorker::new(true))
         } else {
             let msg = format!("Unknown action '{}' for json file service!", request.action);
@@ -105,7 +105,7 @@ impl<T> Worker<T> for ReadFileWorker
         try!(file.read_to_string(&mut content));
         if self.convert {
             match Json::from_str(&content) {
-                Ok(json) => Ok(Realize::OneItemAndDone(mould_object!{"json" => json})),
+                Ok(object) => Ok(Realize::OneItemAndDone(mould_object!{"object" => object})),
                 Err(err) => {
                     let msg = format!("Can't decode json: {}", err);
                     Err(worker::Error::Reject(msg))
@@ -139,7 +139,7 @@ impl<T> Worker<T> for WriteFileWorker
     fn prepare(&mut self, session: &mut T, mut request: Request) -> worker::Result<Shortcut> {
         let path: String = extract_field!(request, "path");
         let content: String = if self.convert {
-            let object = extract_field!(request, "json");
+            let object = extract_field!(request, "object");
             Json::Object(object).to_string()
         } else {
             extract_field!(request, "content")
