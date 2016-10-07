@@ -24,7 +24,7 @@ macro_rules! check_permission {
             access: $crate::FileAccess::$perm,
         };
         if !$session.has_permission(&permission) {
-            return Err(worker::Error::Reject("You haven't permissions!".to_string()));
+            return Err(::std::convert::From::from("You haven't permissions!"));
         }
     }};
 }
@@ -104,13 +104,8 @@ impl<T> Worker<T> for ReadFileWorker
         let mut content = String::new();
         try!(file.read_to_string(&mut content));
         if self.convert {
-            match Json::from_str(&content) {
-                Ok(object) => Ok(Realize::OneItemAndDone(mould_object!{"object" => object})),
-                Err(err) => {
-                    let msg = format!("Can't decode json: {}", err);
-                    Err(worker::Error::Reject(msg))
-                },
-            }
+            let object = try!(Json::from_str(&content));
+            Ok(Realize::OneItemAndDone(mould_object!{"object" => object}))
         } else {
             Ok(Realize::OneItemAndDone(mould_object!{"content" => content}))
         }
