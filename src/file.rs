@@ -1,3 +1,4 @@
+use std::convert::Into;
 use std::fs::File;
 use std::path::Path;
 use std::convert::AsRef;
@@ -24,7 +25,7 @@ macro_rules! check_permission {
             access: $crate::FileAccess::$perm,
         };
         if !$session.has_permission(&permission) {
-            return Err(::std::convert::From::from("You haven't permissions!"));
+            return Err("You haven't permissions!".into());
         }
     }};
 }
